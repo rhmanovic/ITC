@@ -10,7 +10,7 @@ block content
         
         .col.col-lg-2
             table.table.table-sm 
-                //- thead
+                //- thead 
                     tr
                     th(scope='col') Proparty
                     th(scope='col') Value
@@ -27,6 +27,13 @@ block content
                         td= `${productData.productNo}`
                         td 
                           a(href=`../editAny/Product/${productData._id}/productNo//${productData.productNo?productData.productNo:"NaN"}/${typeof productData.productNo}/productPage`)
+                            span.badge.text-bg-success Edit
+                    tr
+                        th Warehouse No
+                        th :
+                        td= `${productData.warehouseNo}`
+                        td 
+                          a(href=`../editAny/Product/${productData._id}/warehouseNo//${productData.warehouseNo?productData.warehouseNo:"NaN"}/${typeof productData.warehouseNo}/productPage`)
                             span.badge.text-bg-success Edit
                     tr
                         th Name
@@ -47,11 +54,25 @@ block content
 
 
                     tr
-                        th Arabic Name
+                        th English Name
                         th :
-                        td= `${productData.arabicName}`
+                        td= `${productData.nameE}`
                         td 
-                          a(href=`../editAny/Product/${productData._id}/arabicName//${productData.arabicName?productData.arabicName:"NaN"}/${typeof productData.arabicName}/productPage`)
+                          a(href=`../editAny/Product/${productData._id}/nameE//${productData.nameE?productData.nameE:"NaN"}/${typeof productData.nameE}/productPage`)
+                            span.badge.text-bg-success Edit
+                    tr
+                        th URL
+                        th :
+                        td= `${productData.url}`
+                        td 
+                          a(href=`../editAny/Product/${productData._id}/url//${productData.url?productData.url:"NaN"}/${typeof productData.url}/productPage`)
+                            span.badge.text-bg-success Edit
+                    tr
+                        th Google Category
+                        th :
+                        td= `${productData.googleCategory}`
+                        td 
+                          a(href=`../editAny/Product/${productData._id}/googleCategory//${productData.googleCategory?productData.googleCategory:"NaN"}/${typeof productData.googleCategory}/productPage`)
                             span.badge.text-bg-success Edit
                     tr
                         th status
@@ -81,6 +102,26 @@ block content
                         td 
                           a(href=`../editAny/Product/${productData._id}/discountPrice//${productData.discountPrice}/${typeof productData.discountPrice}/productPage`)
                             span.badge.text-bg-success Edit
+
+
+                    tr      
+                      th discounted
+                      th :
+                      td= `${productData.discounted}`
+                      td 
+                        a(href=`../editAny/Product/${productData._id}/discounted//${productData.discounted}/${typeof productData.discounted}/productPage`)
+                          span.badge.text-bg-success Edit
+
+                    tr      
+                      th Show In Website
+                      th :
+                      td= `${productData.showInWebsite}`
+                      td 
+                        a(href=`../editAny/Product/${productData._id}/showInWebsite//${productData.showInWebsite}/${typeof productData.showInWebsite}/productPage`)
+                          span.badge.text-bg-success Edit
+
+
+
                     tr
                         th beforePrice
                         th :
@@ -124,12 +165,21 @@ block content
                           a(href=`../editAny/Product/${productData._id}/sellCount//${productData.sellCount}/${typeof productData.sellCount}/productPage`)
                             span.badge.text-bg-success Edit
                     tr
-                        th category
+                        th category URLs
                         th :
                         td= `${productData.category}`
                         td 
-                          a(href=`../editAny/Product/${productData._id}/category//${productData.category}/${typeof productData.category}/productPage`)
+                          a(href=`../editAny/Product/${productData._id}/category//x/${typeof productData.category}/productPage`)
                             span.badge.text-bg-success Edit
+                        td later modify as image array
+                    tr
+                        th variation
+                        th :
+                        td= `${productData.variation}`
+                        td 
+                          a(href=`../editAny/Product/${productData._id}/variation//${productData.variation?productData.variation:"NaN"}/${typeof productData.variation}/productPage`)
+                            span.badge.text-bg-success Edit
+                        td later modify as image array
                     tr
                         th categoryName
                         th :
@@ -149,14 +199,14 @@ block content
                         th :
                         td= `${productData.brand}`
                         td 
-                          a(href=`../editAny/Product/${productData._id}/brand//${productData.brand}/${typeof productData.brand}/productPage`)
+                          a(href=`../editAny/Product/${productData._id}/brand//${productData.brand?productData.brand:"NaN"}/${typeof productData.brand}/productPage`)
                             span.badge.text-bg-success Edit
                     tr
                         th brandName
                         th :
                         td= `${productData.brandName}`
                         td 
-                          a(href=`../editAny/Product/${productData._id}/brandName//${productData.brandName}/${typeof productData.brandName}/productPage`)
+                          a(href=`../editAny/Product/${productData._id}/brandName//${productData.brandName?productData.brandName:"NaN"}/${typeof productData.brandName}/productPage`)
                             span.badge.text-bg-success Edit
                     tr
                         th vendor
@@ -183,14 +233,15 @@ block content
                         th Image
                         th :
                         if productData.img
-                          td 
-                            a(href=`${productData.img}`) Image Link
+                          each img,index in productData.img
+                            td 
+                              a(href=`${img}`) Image Link
                         else
                           td -
                         
                         td 
                           a(href=`../uploadImage/Product/${productData._id}/productPage`)
-                            span.badge.text-bg-success Upload Image
+                            span.badge.text-bg-success Upload Image 
 
                     tr      
                       th SubProducts
@@ -248,11 +299,18 @@ block content
                           span.badge.text-bg-success Edit
                
                     tr      
-                      th color type
+                      th color
                       th :
-                      td= `${productData.colortype}`
+                      td= `${productData.color}`
                       td 
-                        a(href=`../editAny/Product/${productData._id}/colortype//${productData.colortype}/${typeof productData.colortype}/productPage`)
+                        a(href=`../editAny/Product/${productData._id}/color//${productData.color?productData.color:"NaN"}/${typeof productData.color}/productPage`)
+                          span.badge.text-bg-success Edit
+                    tr      
+                      th note
+                      th :
+                      td= `${productData.note}`
+                      td 
+                        a(href=`../editAny/Product/${productData._id}/note//${productData.note?productData.note:"NaN"}/${typeof productData.note}/productPage`)
                           span.badge.text-bg-success Edit
                
         
