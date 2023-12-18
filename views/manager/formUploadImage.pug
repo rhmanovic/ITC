@@ -2,68 +2,10 @@ extends layout
 
 block content
   .main.container
-    if data.collection != "Product"
-      - var action = `/manager/uploadImage/${data.collection}/${data.id}/${data.returnTo}`
-      
-      .row
-          h3= `Upload ${data.collection} Image`
-  
-          form.input-group(method='POST' action=action enctype='multipart/form-data')
-            .row
-              
-              .col-sm
-                .input-group.mb-3
-                  input#inputGroupFile01.form-control(type='file', aria-describedby='myFile' name='myFile')
-                  //label.input-group-text(for='inputGroupFile02') Upload
-                  button#myFile.input-group-text(for='inputGroupFile01') Upload
-  
-  
+    .row
+      .col-md-8.col-md-offset-2
+        h1.display-4.m-b-2 ITC Store
+        p This is ITC Store
+        a.btn.btn-primary(href='#') Get in touch
 
-    - var action = ``
-    - var indexGlobal = 0
 
-    
-    if data.collection == "Product"
-      each img,index in result.img
-        - indexGlobal = index + 1
-        
-      
-        .row
-            h3= `Upload ${data.collection} Image, #${index}`
-            p= img
-            - action = `/manager/uploadImage/${data.collection}/${data.id}/${data.returnTo}/${index}`
-            form.input-group(method='POST' action=action enctype='multipart/form-data')
-              .row
-                
-                .col-sm
-                  .input-group.mb-3
-                    input#inputGroupFile01.form-control(type='file', aria-describedby='myFile' name='myFile')
-                    //label.input-group-text(for='inputGroupFile02') Upload
-                    button#myFile.input-group-text(for='inputGroupFile01') Upload
-  
-      .row
-          h3= `Upload ${data.collection} Image, #${indexGlobal}`
-          p new...
-          - action = `/manager/uploadImage/${data.collection}/${data.id}/${data.returnTo}/${indexGlobal}`
-          form.input-group(method='POST' action=action enctype='multipart/form-data')
-            .row
-              
-              .col-sm
-                .input-group.mb-3
-                  input#inputGroupFile01.form-control(type='file', aria-describedby='myFile' name='myFile')
-                  //label.input-group-text(for='inputGroupFile02') Upload
-                  button#myFile.input-group-text(for='inputGroupFile01') Upload
-  
-      
-  
-                
-  
-  
-  
-  
-  
-                
-  
-  
-  
-  
