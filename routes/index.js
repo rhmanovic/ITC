@@ -1,10 +1,8 @@
 var express = require('express');
 var router = express.Router();
-
 var Charge = require('../models/charge');
 var Chapter = require('../models/chapter');
 var Course = require('../models/course');
-
 var Product = require('../models/product');
 var Category = require('../models/category');
 var Vendor = require('../models/vendor');
@@ -14,6 +12,77 @@ var Order = require('../models/order');
 var TransferRequest = require('../models/transferRequest');
 var User = require('../models/user');
 var City = require('../models/city');
+const keys = require('../config/keys');
+var nodemailer = require('nodemailer');
+
+
+
+
+router.get('/send', function(req, res) {
+
+  const { user } = req.query;
+  const { orderID } = req.query;
+  const { mobile } = req.query;
+  const { massege } = req.query;
+  const { color } = req.query;
+  const { KentStatus } = req.query;
+  const { orderNo } = req.query;
+
+  console.log("orderID:" + orderID)
+
+ 
+
+   const output = 'Email Body';
+  // get it from here https://myaccount.google.com/apppasswords
+  var transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'eng.dugaim@gmail.com',
+    pass: 'kioxedtstdtierbv'
+  }
+    
+});
+
+var mailOptions = {
+  from: 'eng.dugaim@gmail.com',
+  to: 'eng.dugaim@gmail.com, ting.storee@gmail.com',
+  subject: `${massege} رقم الطلب: ${orderID}`,
+  text: `mobile: ${mobile},
+  orderID: ${orderID}. 
+  https://www.tingstorekw.com/manager/orderPage/${orderID}, 
+  color: ${color},
+  KentStatus: ${KentStatus},
+  source: ${req.session.source}`
+};
+
+transporter.sendMail(mailOptions, function(error, info){
+  if (error) {
+    console.log(error);
+  } else {
+    console.log('Email sent: ' + info.response);
+
+    if (KentStatus == "CAPTURED") {
+      req.session.cartData0 = null;
+      req.session.orderID = null;
+      req.session.cartCount = null;
+    
+      req.session.save(function(err) {
+        // session saved
+        return res.render('redirectAfterPayment', { title: 'Order' , KentStatus:KentStatus, orderNo:orderNo});
+      })
+      
+    } else if (KentStatus == "CANCELLED") {
+      return res.render('redirectAfterPayment', { title: 'Order' , KentStatus:KentStatus, orderNo:orderNo});
+    } else if (KentStatus == "FAILED") {
+      return res.render('redirectAfterPayment', { title: 'Order' , KentStatus:KentStatus, orderNo:orderNo});
+    }else {
+      res.redirect('emptyCart')
+    }
+    
+  }
+}); 
+  
+})
 
 
 var mid = require('../middleware');
@@ -21,18 +90,33 @@ var mid = require('../middleware');
 var nodemailer = require('nodemailer');
 const url = require('url');
 
+//Get // editCoureName
+router.get('/modal', function(req, res){
+  console.log("modal modal");
+  return res.render('includes/modal', { title: 'here we are'});
+})
 
 
+router.get('/sitemap2.xml', function(req, res) {
+res.sendFile('/sitemap.xml');
+});
 
-router.get('/invoicePrint/:orderNo', function(req, res, next) {
 
-  const { orderNo } = req.params;
+router.get('/invoicePrint/:id', function(req, res, next) {
 
-  Order.findOne({ orderNo: orderNo }).exec(function(error, orderData) {
+  const { id } = req.params;
+  
+  const googleAPI = "https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl="
+  const ourLink = `${keys.internal.host}/orderStatus/${id}`
+  const payLink = googleAPI + ourLink
+
+  
+
+  Order.findOne({ _id: id }).exec(function(error, orderData) {
     if (error) {
       return next(error);
     } else {
-      return res.render('invoicePrint', { title: 'invoicePrint' , orderData: orderData});
+      return res.render('invoicePrint', { title: `invoice no: ${orderData.orderNo}` , orderData: orderData, payLink:payLink });
     }
   })
 
@@ -46,7 +130,7 @@ router.post('/Disc', function(req, res, next) {
 
   var code = req.body.code;
 
-  console.log("code: " + code);
+
 
 
   if (code == "ITC") {
@@ -91,7 +175,7 @@ router.get('/sheet', function(req, res, next) {
 
 router.get('/orderReceived', function(req, res, next) {
 
-  return res.render('redirect', { title: 'ITC Discount' });
+  return res.render('redirect', { title: 'Order' });
 
 
 });
@@ -111,18 +195,93 @@ router.get('/mutlaa', function(req, res, next) {
 });
 
 
+router.get('/category/:category',async function(req, res, next) {
+  const { category } = req.params;
 
-router.get('/', function(req, res, next) {
+
+  try {
+
+    const productDataAll = await Product.find({ "category": category, showInWebsite: true}).sort({ productNo: 1 })
+    const categoryData = await Category.findOne({ "URLname": category})
+    const subCategoryData = await Category.find({ "parent": categoryData.thisCategory })
+
+
+    return res.render('category', { title: categoryData.name, productDataAll: productDataAll, categoryData:categoryData, subCategoryData:subCategoryData });
+
+    
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.get('/search',async function(req, res, next) {
+  const { text } = req.query;
+
+
+  
+
+  try {
+   
+
+    const productSearch = await Product.aggregate(
+      [
+        {
+          $search: {
+            index: "TheITCSearch",
+            text: {
+              query: text,
+              path: {
+                wildcard: "*"
+              }
+            }
+          }
+        }
+      ]
+    )
+    
+   
+
+    return res.render('search', { title: `Search result for: ${text}`,text:text, productSearch: productSearch });
+
+    
+  } catch (error) {
+    return next(error);
+  }
+});
+
+
+
+
+router.get('/', async function(req, res, next) {
   // res.send('Hello World!')
 
-  Category.find({}).sort({ categoryNo: 1 }).exec(function(error, categoryData) {
-    if (error) {
-      return next(error);
-    } else {
-      return res.render('home', { title: 'Home', categoryData: categoryData });
-    }
-  });
+  console.log("router //")
 
+  var productDataAll = [];
+  var categoriesPass = [];
+
+  try {
+    const categoryData = await Category.find({}).sort({ categoryNo: 1 })
+    
+    
+    
+
+    
+    for (let i = 0; i < categoryData.length; i++) {
+      if ( categoryData[i].parent == "/") {        
+        categoriesPass.push(categoryData[i])
+        var prouct = await Product.find({ "category": categoryData[i].URLname, showInWebsite: true})
+        productDataAll.push(prouct)
+      }
+    }
+
+    
+    
+    
+    return res.render('home', { title: 'Home', categoryData: categoryData, productDataAll:productDataAll, categoriesPass : categoriesPass});
+  } catch (error) {
+    return next(error);
+  }
 });
 
 
@@ -130,7 +289,6 @@ router.post('/upSellApprove', function(req, res, next) {
 
   var cartData = req.session.cartData0;
 
-  console.log(cartData);
 
   var IDs = []; var Names = []; var Prices = []; var Quantities = []; Warrantys = []; var Costs = []; var Warranties = []; cartIDs = [];
 
@@ -197,13 +355,9 @@ router.post('/upSellApprove', function(req, res, next) {
 
     Order.create(orderData, function(error, theOrder) {
       if (error) {
-        console.log(error.code);
         return next(error);
       } else {
-        console.log("order created")
-        console.log("")
-        console.log(theOrder._id)
-        console.log((theOrder._id).toString())
+       
         // res.redirect('/emptyCart')
 
         res.redirect(url.format({
@@ -224,11 +378,10 @@ router.post('/upSellApprove', function(req, res, next) {
 
   // Order.create(orderData, function(error, theOrder) {
   //   if (error) {
-  //     console.log(error.code);
+  
   //     return next(error);
   //   } else {
-  //     // console.log("ORDER CREATED")
-  //     // console.log("ORDER ID: " + theOrder.id)
+  
   //     req.session.orderID = theOrder.id;
   //     req.session.save(function(err) {
   //       // session saved
@@ -242,15 +395,15 @@ router.post('/upSellApprove', function(req, res, next) {
 
 router.get('/upSellCart', function(req, res, next) {
 
-  console.log("req.session.cartData0: " + req.session.cartData0)
+ 
 
   if (!req.session.cartData0) {
-    console.log("rrr")
+   
     req.session.cartData0 = []
     var old = req.session.cartData0;
     res.redirect('/')
   } else {
-    console.log("ttt")
+   
 
     var old = req.session.cartData0;
   }
@@ -270,9 +423,7 @@ router.get('/upSellAdd/:productNo/:upsellPrice', function(req, res, next) {
   const { productNo } = req.params;
   const { upsellPrice } = req.params;
 
-  console.log("productNo :" + productNo);
-  console.log("upsellPrice :" + upsellPrice);
-
+ 
 
   var productExistInCart = false;
   const host = req.headers.host;
@@ -284,8 +435,7 @@ router.get('/upSellAdd/:productNo/:upsellPrice', function(req, res, next) {
       res.redirect('/emptyCart')
     }
 
-    console.log("productData.upsell :" + productData.upsell);
-
+   
     if (error) {
       return next(error);
     } else {
@@ -318,15 +468,14 @@ router.get('/upSellAdd/:productNo/:upsellPrice', function(req, res, next) {
 
       if (upsellPrice == productData.upsell) {
 
-        console.log("upsellPrice  == productData.upsell :" + "true");
+        
 
         newProduct.Price = productData.price;
         newProduct.upsell = productData.upsell;
         newProduct.isUpSellSecond = true
       }
 
-      console.log("newProduct.isUpSellSecond = " + newProduct.isUpSellSecond)
-
+     
 
       if (!req.session.cartData0) {
         if (upsellPrice != productData.discountPrice) {
@@ -346,15 +495,14 @@ router.get('/upSellAdd/:productNo/:upsellPrice', function(req, res, next) {
 
 
       } else {
-        console.log("5")
+        
         req.session.cartData0 = []
         var old = req.session.cartData0;
       }
 
       // req.session.cartData0 = []
       var old = req.session.cartData0;
-      console.log(old)
-
+     
 
       cartData = req.session.cartData0;
 
@@ -362,7 +510,7 @@ router.get('/upSellAdd/:productNo/:upsellPrice', function(req, res, next) {
       req.session.cartData0 = old;
       req.session.cartData0 = old;
       req.session.cartCount = req.session.cartData0.length;
-      // console.log(req.session.cartData0.length);
+      
       req.session.save(function(err) {
         // session saved
         res.redirect('/upSellCart')
@@ -413,11 +561,9 @@ router.get('/upsellCategory/:productNo/:source', function(req, res, next) {
 
 
 
-          //console.log(productSub); JSON.parse
-          // let reqq= JSON.parse(req);
+         
 
-          console.log(req.headers.host)
-          console.log(req.headers.referer)
+          
 
           // return res.render('upsellCategory', { title: 'Product', productData: productData, ShowModal: ShowModal, Q: Q, productSub: productSub , currentURL: req });
 
@@ -466,11 +612,7 @@ router.get('/upSell/:productNo/:source', function(req, res, next) {
 
 
 
-          //console.log(productSub); JSON.parse
-          // let reqq= JSON.parse(req);
-
-          console.log(req.headers.host)
-          console.log(req.headers.referer)
+         
 
           return res.render('upSell', { title: 'Product', productData: productData, ShowModal: ShowModal, Q: Q, productSub: productSub, currentURL: req });
 
@@ -490,64 +632,90 @@ router.get('/upSell/:productNo/:source', function(req, res, next) {
 
 
 router.get('/test', function(req, res, next) {
-  return res.render('test')
+
+  arr_update_dict = { "$set": {} };
+  arr_update_dict["$set"]["KentStatusBackEnd"] = "yyy";
+
+  Order.findOneAndUpdate({ _id: "6502b878222dfa25640b0666" }, arr_update_dict).then(function() {
+    req.session.cartData0 = null;
+    req.session.orderID = null;
+    req.session.cartCount = null;
+  
+    req.session.save(function(err) {
+      // session saved
+      return res.render('test')
+    })
+    
+  })
+  
+  
 });
 
 
 
-router.get('/category/:categoryNo', function(req, res, next) {
-  const { categoryNo } = req.params;
-
-  Product.find({ categoryNo: categoryNo, status: "A" }).sort({ productNo: 1 }).exec(function(error, productData) {
+router.get('/category/:category', function(req, res, next) {
+  const { category } = req.params;
+  //, status: "A" 
+  Product.find({ "category": category, showInWebsite: true}).sort({ productNo: 1 }).exec(function(error, productData) {
     if (error) {
       return next(error);
     } else {
 
-      if (productData[0]) { var title = productData[0].categoryName }
-      else { var title = categoryNo }
+      Category.findOne({ "URLname": category},  { name: 1} ).exec(function(error, categoryData) {
+        if (error) {
+          return next(error);
+        } else {
+          
+          
 
-      return res.render('category', { title: title, productData: productData });
 
+          
+          
+          return res.render('category', { title: categoryData.name, productData: productData, categoryData:categoryData });
+        }
+      });
     }
   });
 
 });
 
 
-router.get('/product/:productNo', function(req, res, next) {
-  const { productNo } = req.params;
+router.get('/product/:url', function(req, res, next) {
+  const { url } = req.params;
   const { ShowModal } = req.query;
   const { Q } = req.query;
 
 
-  Product.findOne({ productNo: productNo }).exec(function(error, productData) {
-    if (error) {
-      return next(error);
-    } else {
+  
+  try {
+    Product.findOne({ url: url }).exec(function(error, productData) {
+      if (error) {
+        return next(error);
+      } else {
 
-      Product.find({ SuperProductID: productData._id, variant: true }).exec(function(error, productSub) {
-        if (error) {
-          return next(error);
-        } else {
-
-
-
-          //console.log(productSub); JSON.parse
-          // let reqq= JSON.parse(req);
-
-          console.log(req.headers.host)
-          console.log(req.headers.referer)
-          return res.render('product', { title: productData.name, productData: productData, ShowModal: ShowModal, Q: Q, productSub: productSub, currentURL: req });
-
-
+        var title = ""
+        if(productData){
+          title = productData.name
         }
-      });
+        if (ShowModal == "yes")  {
+          return res.render('product2', { title: title, productData: productData, ShowModal:ShowModal, Q:Q});
+        } else {
+          return res.render('product', { title: title, productData: productData, ShowModal:ShowModal, Q:Q});
+        }
+       
+  
+      }
+    });
 
-
-    }
-  });
-
+    
+  } catch (error) {
+    return next(error);
+  }
+  
 });
+
+
+
 
 
 const accountSid = 'ACa3ea7f269ecdff5eedf49b833ec2c5b9';
@@ -563,7 +731,7 @@ router.get('/sms', function(req, res, next) {
     if (err) {
       console.log(err);
     }
-    console.log(data)
+   
   })
     .then(message => console.log(message.sid));
 
@@ -575,10 +743,7 @@ router.get('/editProductQuantite2/:productID/:newQuantity/:newPrice', function(r
   const { newPrice } = req.params;
   var old = req.session.cartData0;
 
-  console.log("productID: " + productID)
-  console.log("newQuantity: " + newQuantity)
-  console.log("newPrice: " + newPrice)
-  console.log("old: " + old)
+ 
 
   try {
     var data = {
@@ -590,8 +755,7 @@ router.get('/editProductQuantite2/:productID/:newQuantity/:newPrice', function(r
     if (old) {
       old.forEach(function(product, index, array) {
         if (product.ID == productID) {
-          console.log("product: " + JSON.stringify(product));
-          console.log("array[index]: " + JSON.stringify(array[index]));
+          
           array[index].Price = Number(newPrice)
           array[index].Quantity = Number(newQuantity)
 
@@ -601,7 +765,7 @@ router.get('/editProductQuantite2/:productID/:newQuantity/:newPrice', function(r
       })
     }
   } finally {
-    console.log("old: " + JSON.stringify(old))
+    
 
     req.session.save(function(err) {
 
@@ -618,8 +782,7 @@ router.get('/editProductQuantite2/:productID/:newQuantity', function(req, res) {
   const { newQuantity } = req.params;
   var old = req.session.cartData0;
 
-  // console.log("you reached editProductQuantite")
-
+  
   try {
     var data = {
       quantity: 0,
@@ -681,13 +844,8 @@ router.get('/editProductQuantite/:productID/:newQuantity/:newPrice', function(re
   const { newPrice } = req.params;
   var old = req.session.cartData0;
 
-  console.log("newQuantity :" + newQuantity);
-  console.log("newPrice :" + newPrice);
-  console.log(1);
-  console.log(newPrice);
-
-  // console.log("you reached editProductQuantite")
-
+  
+  
   try {
     var data = {
       quantity: 0,
@@ -696,14 +854,14 @@ router.get('/editProductQuantite/:productID/:newQuantity/:newPrice', function(re
     }
     var indexToSplice = 1000000;
 
-    console.log(2);
+    
 
 
     if (req.session.cartData0) {
       old.forEach(function(product, index, array) {
         // data.totalPrice += product.Price*1000 * product.Quantity/1000;
-        // console.log("product.Price " + product.Price)
-        console.log(3);
+        
+        
         if (product.ID == productID) {
           data.totalPrice += newPrice * 1000 * newQuantity / 1000;
           if (newQuantity == 0) {
@@ -712,26 +870,22 @@ router.get('/editProductQuantite/:productID/:newQuantity/:newPrice', function(re
             data.quantity = newQuantity;
             data.price = newPrice;
 
-            console.log(4);
+            
           } else {
-            // console.log("array[index]  " + JSON.stringify(array[index]));
-
+            
             array[index].Quantity = newQuantity;
             array[index].Price = newPrice;
-            // console.log(newPrice);
-            // console.log("array[index]  " + JSON.stringify(array[index]));
-
+            
             data.quantity = newQuantity;
             data.price = newPrice;
 
-            console.log(5);
+            
           }
 
         } else {
           data.totalPrice +=
             newPrice * 1000 * product.Quantity / 1000;
-          console.log(6);
-          console.log(newPrice * 1000 * product.Quantity / 1000)
+          
 
         }
       });
@@ -740,22 +894,20 @@ router.get('/editProductQuantite/:productID/:newQuantity/:newPrice', function(re
   } finally {
     if (indexToSplice != 1000000) {
       old.splice(indexToSplice, 1);
-      console.log(7);
+      
     }
 
 
     req.session.cartData0 = old;
     if (old.length == 0) {
       req.session.cartCount = null;
-      console.log(8);
+      
     }
 
 
 
     req.session.save(function(err) {
-      console.log(9);
-      console.log(old);
-      console.log(data);
+      
       req.session.cartData0 = old;
       return res.send(data);
     })
@@ -774,9 +926,7 @@ router.get('/cart', function(req, res, next) {
   var cartData = [];
   var orderData = {};
 
-  console.log("theSaleseman: " + req.session.theSaleseman);
-  console.log("manager: " + req.session.manager);
-
+ 
   var renderCart = "cart";
   if (req.session.theSaleseman || req.session.manager) {
     renderCart = "cart2";
@@ -807,11 +957,9 @@ router.get('/cart', function(req, res, next) {
   function createOrder_SafeOrederIdToSession_thenRout() {
     Order.create(orderData, function(error, theOrder) {
       if (error) {
-        console.log(error.code);
         return next(error);
       } else {
-        // console.log("ORDER CREATED")
-        // console.log("ORDER ID: " + theOrder.id)
+        
         req.session.orderID = theOrder.id;
         req.session.save(function(err) {
           // session saved
@@ -832,17 +980,11 @@ router.get('/cart', function(req, res, next) {
     }
 
     Product.find({ _id: { $in: cartIDs } }).exec(function(error, productData) {
-      // console.log("cartIDs:  " + cartIDs)
-      // console.log("cartData: " + JSON.stringify(cartData))
-
-
+     
       City.findOne({ _id: "63ad38dee77cc01557b258e4" }).exec(function(error, citytData) {
         if (error) {
           return next(error);
         } else {
-
-
-
           // return res.render('product', { title: 'Product]', productData: productData, ShowModal:ShowModal, Q:Q });
           return res.render(renderCart, { title: 'Cart', cartData: productData, cartData2: cartData, citytData: citytData });
 
@@ -855,6 +997,27 @@ router.get('/cart', function(req, res, next) {
 
 })
 
+router.get('/orderStatus/:id', async function(req, res, next) {
+  const { id } = req.params;
+  const orderData = await Order.findOne({ _id: id})
+
+  var shippingCost = Number(orderData.shippingCost)
+
+  var totalPayed = 0;
+
+  orderData.quantity.forEach(function(q, index, array) {
+    totalPayed += orderData.quantity[index] * orderData.price[index]
+  })
+
+  console.log("totalPayed: " + totalPayed)
+  var amount = totalPayed + shippingCost
+  
+  return res.render("orderStatus", { title: 'Order Status', orderData:orderData, amount:amount});
+});
+
+
+
+
 
 
 router.post('/AddOrder2', function(req, res, next) {
@@ -864,7 +1027,7 @@ router.post('/AddOrder2', function(req, res, next) {
   var cartIDs = [];
   var cartData = req.session.cartData0;
   var orderID = req.session.orderID;
-  var IDs = []; var Names = []; var Prices = []; var Quantities = []; var Costs = []; var Warranties = [];
+  var IDs = []; var Names = []; var Prices = []; var Quantities = []; var Variations = []; var Costs = []; var Warranties = [];
 
   var orderData = {
     'mobile': req.body.mobile,
@@ -880,17 +1043,17 @@ router.post('/AddOrder2', function(req, res, next) {
     // 'city': req.body.city.split("#")[2],
   };
 
+  
 
-  // console.log("req.session");
-  // console.log(req.session);
-  // console.log("req.body");
-  // console.log(JSON.stringify(req.body));
+
+ 
 
   cartData.forEach(function(product, index, array) {
     Names.push(product.Name);
     cartIDs.push(product.ID);
     Prices.push(product.Price);
     Quantities.push(product.Quantity);
+    Variations.push(product.variation);
     Warranties.push(product.warranty);
   });
 
@@ -900,7 +1063,7 @@ router.post('/AddOrder2', function(req, res, next) {
 
     cartData.forEach(function(product, index, array) {
       let z = product.productNo;
-      console.log("z(" + index + "): " + z);
+      
       let obj2 = productData.find(o => o.productNo === z);
       Costs.push(obj2.cost);
 
@@ -921,6 +1084,7 @@ router.post('/AddOrder2', function(req, res, next) {
     arr_update_dict["$set"]["productNames"] = Names
     arr_update_dict["$set"]["productIDs"] = cartIDs;
     arr_update_dict["$set"]["quantity"] = Quantities;
+    arr_update_dict["$set"]["variation"] = Variations;
     arr_update_dict["$set"]["warranty"] = Warranties;
 
 
@@ -955,18 +1119,19 @@ router.post('/AddOrder2', function(req, res, next) {
 })
 
 // POST /AddOrder 
-router.post('/AddOrder', function(req, res, next) {
 
-  console.log("......req.session.mutlaa" + req.session.mutlaa);
-
+router.post('/AddOrder', function(req, res1, next) {
   var cartIDs = [];
   var cartData = req.session.cartData0;
   var orderID = req.session.orderID;
+
+  console.log(orderID);
 
   if (cartData == null) { res.redirect('/cart') }
 
   var orderData = {
     'userID': req.body.userID,
+    'payment_method': req.body.payment_method,
     'customerName': req.body.customerName,
     'mobile': req.body.mobile,
     'email': req.body.email,
@@ -974,15 +1139,14 @@ router.post('/AddOrder', function(req, res, next) {
     'ID_CITY': req.body.city.split("#")[0],
     'shippingCost': req.body.city.split("#")[1],
     'city': req.body.city.split("#")[2],
-
   };
 
-  console.log("orderData");
+  console.log("orderData.shippingCost orderData.shippingCost orderData.shippingCost: " + orderData.shippingCost)
+  
 
-  console.log(orderData);
-  console.log(req.body);
-
-  var IDs = []; var Names = []; var Prices = []; var Quantities = [];
+  //console.log("orderData.payment_method: " + orderData.payment_method);
+  
+  var IDs = []; var Names = []; var Prices = []; var Quantities = []; var Variations = [];  var warehouseNos = []
 
   cartData.forEach(function(product, index, array) {
     cartIDs.push(product.ID);
@@ -990,57 +1154,388 @@ router.post('/AddOrder', function(req, res, next) {
 
 
 
-  Product.find({ _id: { $in: cartIDs } }, { name: 1, price: 1, discountPrice: 1 }).exec(function(error, productData) {
+
+
+  
+  Product.find({ _id: { $in: cartIDs } }, { name: 1, price: 1, discountPrice: 1, discounted: 1, warehouseNo:1 }).exec(function(error, productData) {
 
     productData.forEach(function(product, index) {
       IDs[index] = product._id
       Names[index] = product.name
       Prices[index] = product.price
-      if (product.discountPrice != 0) { Prices[index] = product.discountPrice }
-      Quantities[index] = cartData[index].Quantity
+      warehouseNos[index] = product.warehouseNo
+      if (product.discounted) { Prices[index] = product.discountPrice }
+      
       if (req.session.mutlaa) { Prices[index] = product.discountPrice };
+
+      cartData.forEach(function(cartProduct, index2) {
+        if (cartProduct.ID == product._id) {
+          Quantities[index] = cartProduct.Quantity
+          Variations[index] = cartProduct.variation
+        }
+      })
+  
+      
     });
 
+    var totalPayed = 0;
 
-    arr_update_dict = { "$set": {} };
-    arr_update_dict["$set"]["productIDs"] = IDs;
-    arr_update_dict["$set"]["quantity"] = Quantities;
-    arr_update_dict["$set"]["productNames"] = Names;
-    arr_update_dict["$set"]["price"] = Prices;
-
-    arr_update_dict["$set"]["warehouse"] = "qurain";
-    arr_update_dict["$set"]["userID"] = orderData.userID;
-    arr_update_dict["$set"]["customerName"] = orderData.customerName;
-    arr_update_dict["$set"]["mobile"] = orderData.mobile;
-    arr_update_dict["$set"]["email"] = orderData.email;
-    arr_update_dict["$set"]["address"] = orderData.address;
-    arr_update_dict["$set"]["ID_CITY"] = orderData.ID_CITY;
-    arr_update_dict["$set"]["shippingCost"] = orderData.shippingCost;
-    arr_update_dict["$set"]["city"] = orderData.city;
-
-
-    Order.findOneAndUpdate({ _id: orderID }, arr_update_dict).then(function() {
-      //res.redirect('/send')
-
-      res.redirect(url.format({
-        pathname: "manager/send",
-        query: {
-          "user": "customer",
-          "orderID": orderID,
-          "mobile": orderData.mobile,
-          "massege": "تم استلام طلب جديد"
-        }
-      }));
-      //res.redirect('/emptyCart')
+    Quantities.forEach(function(product, index, array) {
+      totalPayed += Quantities[index] * Prices[index]
     })
 
+    //console.log(" totalPayed: " + totalPayed)
 
-    // res.redirect('/cart')
+    
+    
+
+    setOrder ()
+    
+
+    function setOrder () {
+      arr_update_dict = { "$set": {} };
+      arr_update_dict["$set"]["productIDs"] = IDs;
+      arr_update_dict["$set"]["payment_method"] = orderData.payment_method;
+      arr_update_dict["$set"]["quantity"] = Quantities;
+      arr_update_dict["$set"]["variation"] = Variations;
+      arr_update_dict["$set"]["productNames"] = Names;
+      arr_update_dict["$set"]["price"] = Prices;
+      arr_update_dict["$set"]["warehouseNo"] = warehouseNos;
+      
+      arr_update_dict["$set"]["warehouse"] = "qurain";
+      arr_update_dict["$set"]["userID"] = orderData.userID;
+      arr_update_dict["$set"]["customerName"] = orderData.customerName;
+      arr_update_dict["$set"]["mobile"] = orderData.mobile;
+      arr_update_dict["$set"]["email"] = orderData.email;
+      arr_update_dict["$set"]["address"] = orderData.address;
+      arr_update_dict["$set"]["ID_CITY"] = orderData.ID_CITY;
+      arr_update_dict["$set"]["shippingCost"] = orderData.shippingCost;
+      arr_update_dict["$set"]["city"] = orderData.city;
+  
+
+      function Sendmail() {
+        res1.redirect(url.format({
+          pathname: "manager/send",
+          query: {
+            "user": "customer",
+            "orderID": orderID,
+            "mobile": orderData.mobile,
+            "massege": "تم استلام طلب جديد"
+          }
+        }));
+      }
+      
+      Order.findOneAndUpdate({ _id: orderID }, arr_update_dict).then(function() {
+      // res.redirect('/send')
+        if (orderData.payment_method == "knet") {
+          payforThis()
+        } else if (orderData.payment_method == "cash") {
+          Sendmail()
+        }
+      })
+      
+    }
+
+
+    function payforThis() {
+      var myWbsite = keys.internal.host;
+      var postURL =  myWbsite + '/getPay';
+      //console.log("myWbsite: " + myWbsite)
+      //console.log("keys: " + keys.tapPayment.authorization)
+      var shippingCost = Number(orderData.shippingCost)
+      var amount = totalPayed + shippingCost
+      var request = require("request");
+      console.log("postURL: " + postURL)
+      //console.log("keys.tapPayment.authorization: " + keys.tapPayment.authorization)
+
+      var http = require("https");
+      var options = {
+        "method": "POST",
+        "hostname": "api.tap.company",
+        "port": null,
+        "path": "/v2/charges",
+        "headers": {
+          "authorization": keys.tapPayment.authorization,
+          "content-type": "application/json"
+        }
+      };
+
+      var req = http.request(options, function(res) {
+        var chunks = [];
+  
+        res.on("data", function(chunk) {
+          chunks.push(chunk);
+        });
+  
+        res.on("end", function() {
+          var body = Buffer.concat(chunks);
+          console.log("body.toString(): " + body.toString());
+          var profile = JSON.parse(body);
+          console.log("_______________________________________profile.transaction_______________________________________" + body.transaction)
+          var transactionUrl = profile.transaction.url;
+          console.log("transactionUrl: " + transactionUrl)
+          return res1.redirect(transactionUrl);
+  
+        });
+
+        
+      });
+
+      req.write(JSON.stringify({
+        amount: amount,
+        currency: 'KWD',
+        threeDSecure: true,
+        save_card: false,
+        description: 'Test Description',
+        statement_descriptor: 'Sample',
+        metadata: { udf1: orderID, udf2: 'test 2' },
+        reference: { transaction: 'txn_0001', order: 'tng' },
+        receipt: { email: false, sms: true },
+        customer:
+        {
+          first_name: orderData.customerName,
+          middle_name: 'test',
+          last_name: 'test',
+          email: 'test@test.com',
+          phone: { country_code: '965', number: orderData.mobile }
+        },
+        merchant: { id: '' },
+        source: { id: 'src_kw.knet' },
+        post: { url:postURL },
+        redirect: { url:myWbsite + '/tapRedirect' }
+      }));
+      req.end();
+
+  };
+
+    
+  });
+})
+
+router.get('/payforThis/:id', async function(req, res1, next) {
+  const { id } = req.params;
+  const orderData = await Order.findOne({ _id: id})
+  var totalPayed = 0
+  orderData.quantity.forEach(function(q, index, array) {
+    totalPayed += orderData.quantity[index] * orderData.price[index]
+  })
+  
+  var shippingCost = Number(orderData.shippingCost)
+  var myWbsite = keys.internal.host;
+  var postURL =  myWbsite + '/getPay';
+  
+  var amount = totalPayed + shippingCost
+  var request = require("request");
+   
+    
+
+  var http = require("https");
+  var options = {
+    "method": "POST",
+    "hostname": "api.tap.company",
+    "port": null,
+    "path": "/v2/charges",
+    "headers": {
+      "authorization": keys.tapPayment.authorization,
+      "content-type": "application/json"
+    }
+  };
+
+  var req = http.request(options, function(res) {
+    var chunks = [];
+
+    res.on("data", function(chunk) {
+      chunks.push(chunk);
+    });
+
+    res.on("end", function() {
+      var body = Buffer.concat(chunks);
+      var profile = JSON.parse(body);
+      var transactionUrl = profile.transaction.url;
+      console.log("transactionUrl: " + transactionUrl)
+      return res1.redirect(transactionUrl);
+    });    
   });
 
-
-
+  req.write(JSON.stringify({
+    amount: amount,
+    currency: 'KWD',
+    threeDSecure: true,
+    save_card: false,
+    description: 'Test Description',
+    statement_descriptor: 'Sample',
+    metadata: { udf1: id, udf2: 'test 2' },
+    reference: { transaction: 'txn_0001', order: 'tng' },
+    receipt: { email: false, sms: true },
+    customer:
+    {
+      first_name: orderData.customerName,
+      middle_name: 'test',
+      last_name: 'test',
+      email: 'test@test.com',
+      phone: { country_code: '965', number: orderData.mobile }
+    },
+    merchant: { id: '' },
+    source: { id: 'src_kw.knet' },
+    post: { url:postURL },
+    redirect: { url:myWbsite + '/tapRedirect2' }
+  }));
+  req.end();
 })
+
+
+
+
+router.get('/tapRedirect', async function(req, res1, next) {
+  
+
+  const { tap_id } = req.query;
+
+  // console.log('tapRedirect')
+  // console.log(tap_id)
+  // console.log(req.body)
+
+  retrieveCharge();
+  
+  function retrieveCharge() {
+    var http = require("https");
+
+    var options = {
+      "method": "GET",
+      "hostname": "api.tap.company",
+      "port": null,
+      "path": `/v2/charges/${tap_id}`,
+      "headers": {
+        "authorization": keys.tapPayment.authorization,
+      }
+    };
+    
+    var req = http.request(options, function (res) {
+      var chunks = [];
+    
+      res.on("data", function (chunk) {
+        chunks.push(chunk);
+      });
+    
+      res.on("end", async function () {
+        var body = Buffer.concat(chunks);
+        var profile = JSON.parse(body);
+        var KentStatus = profile.status;
+        var OrderId = profile.metadata.udf1
+
+        
+
+        const orderData = await Order.findOne({ _id: OrderId})
+
+       
+        
+        
+        arr_update_dict = { "$set": {} };
+        arr_update_dict["$set"]["KentStatus"] = KentStatus
+        
+      
+        Order.findOneAndUpdate({ _id: OrderId }, arr_update_dict).then(function() {
+    
+          // CANCELLED | FAILED | CAPTURED xxx
+          
+
+          res1.redirect(url.format({
+            pathname: "/send",
+            query: {
+              "user": "customer",
+              "orderID": (OrderId).toString(),
+              "massege": "Ting طلب جديد دفع كينت",
+              "KentStatus": KentStatus,
+              "orderNo": orderData.orderNo
+            }
+          }));
+          
+
+          
+          
+        })
+        
+        
+      });
+    });
+    
+    req.write("{}");
+    req.end();
+  }
+
+  
+});
+
+
+router.get('/tapRedirect2', async function(req, res1, next) {
+  
+
+  const { tap_id } = req.query;
+
+  retrieveCharge();
+  
+  function retrieveCharge() {
+    var http = require("https");
+
+    var options = {
+      "method": "GET",
+      "hostname": "api.tap.company",
+      "port": null,
+      "path": `/v2/charges/${tap_id}`,
+      "headers": {
+        "authorization": keys.tapPayment.authorization,
+      }
+    };
+    
+    var req = http.request(options, function (res) {
+      var chunks = [];
+    
+      res.on("data", function (chunk) {
+        chunks.push(chunk);
+      });
+    
+      res.on("end", async function () {
+        var body = Buffer.concat(chunks);
+        var profile = JSON.parse(body);
+        var KentStatus = profile.status;
+        var OrderId = profile.metadata.udf1
+
+        
+
+        const orderData = await Order.findOne({ _id: OrderId})
+
+       
+        
+        
+        arr_update_dict = { "$set": {} };
+        arr_update_dict["$set"]["KentStatus"] = KentStatus
+        
+      
+        Order.findOneAndUpdate({ _id: OrderId }, arr_update_dict).then(function() {
+    
+          // CANCELLED | FAILED | CAPTURED xxx
+          
+
+          
+
+          return res1.render('redirectAfterPayment', { title: 'Order' , KentStatus:KentStatus, orderNo:orderData.orderNo});
+          
+
+          
+          
+        })
+        
+        
+      });
+    });
+    
+    req.write("{}");
+    req.end();
+  }
+
+  
+});
+
 
 
 
@@ -1068,13 +1563,10 @@ router.get('/emptyCart', function(req, res, next) {
 router.post('/cart', function(req, res, next) {
   var productExistInCart = false;
   const host = req.headers.host;
-  var hostNew = "";
+  const referer = req.headers.referer;
 
-  if (host == "localhost:3000") {
-    hostNew = "itcstore.net";
-  } else {
-    hostNew = host;
-  }
+  
+  
   var newProduct = {
     ID: req.body.productId,
     Name: req.body.name,
@@ -1083,46 +1575,129 @@ router.post('/cart', function(req, res, next) {
     productNo: parseFloat(req.body.productNo),
     parentNo: parseFloat(req.body.parentNo),
     warranty: parseFloat(req.body.warranty),
-    // total : parseInt(req.body.quantity)*parseFloat(req.body.price)
+    variation: req.body.variation,
   }
 
-
-  console.log("req.session.cartData0" + req.session.cartData0);
-
+  hostNew = host;
 
   if (!req.session.cartData0) {
     req.session.cartData0 = []
     var old = req.session.cartData0;
+    console.log("New Empty Cart Created")
   } else {
 
     var old = req.session.cartData0;
-    var productExistInCart = false;
+    console.log("We Already have a cart")
+    // console.log("Now we will check if productExistInCart")
+    // old.forEach(function(product, index, array) {
+    //   console.log("If Yes will update quantity ")
+    //   if (product.ID == newProduct.ID) {
+    //     array[index].Quantity = newProduct.Quantity;
+    //     productExistInCart = true;
+    //     console.log("One of products Exist on the cart and we updated Quantity")
+    //   }
+    // });
+    // console.log("productExistInCart: " + productExistInCart)
 
-    old.forEach(function(product, index, array) {
-      if (product.ID == req.body.productId) {
-        array[index].Quantity += newProduct.Quantity;
-        productExistInCart = true;
-      }
-    });
+   
+    
   }
+  
+  console.log("referrer.split('/')[2]: " + referer.split('/')[2])
+  console.log(hostNew)
+  console.log(newProduct)
+  console.log(req.headers.referer)
+  var productName = referer.split('/')[4]
+  console.log("productName: " + productName)
+  // constrer = req.headers.referer host = req.headers.host;
+  // const refe;
 
-  if (productExistInCart) {
-    req.session.cartData0 = old;
-    req.session.save(function(err) {
-      // session saved
-      return res.redirect(`https://${hostNew}/product/${newProduct.parentNo}?ShowModal=yes&Q=${newProduct.Quantity}`);
-    })
-  } else {
-    old.push(newProduct);
-    req.session.cartData0 = old;
-    req.session.cartData0 = old;
-    req.session.cartCount = req.session.cartData0.length;
-    // console.log(req.session.cartData0.length);
-    req.session.save(function(err) {
-      // session saved
-      return res.redirect(`https://${hostNew}/product/${newProduct.parentNo}?ShowModal=yes&Q=${newProduct.Quantity}`);
-    })
-  }
+  console.log("Now the product is not in the cart we will make push + update session + redirect + cartCount")
+  old.push(newProduct);
+  req.session.cartData0 = old;
+  req.session.cartCount = req.session.cartData0.length;
+
+  req.session.save(function(err) {
+    // session saved
+    return res.redirect(`https://${referer.split('/')[2]}/product/${productName}?ShowModal=yes&Q=${newProduct.Quantity}`);
+  })
+
+  
+
+  
+
+  // if (productExistInCart) {
+  //   console.log("Now the product is in the cart we will update session and redirect")
+  //   req.session.cartData0 = old;
+  //   req.session.save(function(err) {
+  //     // session saved
+  //     return res.redirect(`https://${referer.split('/')[2]}/product/${productName}?ShowModal=yes&Q=${newProduct.Quantity}`);
+  //   })
+  // } else {
+  //   console.log("Now the product is not in the cart we will make push + update session + redirect + cartCount")
+  //   old.push(newProduct);
+  //   req.session.cartData0 = old;
+  //   req.session.cartCount = req.session.cartData0.length;
+    
+  //   req.session.save(function(err) {
+  //     // session saved
+  //     return res.redirect(`https://${referer.split('/')[2]}/product/${productName}?ShowModal=yes&Q=${newProduct.Quantity}`);
+  //   })
+  // }
+
+
+  
+  // if (host == "localhost:3000") {
+  //   hostNew = "itcstore.net";
+  // } else {
+  //   hostNew = host;
+  // }
+  // var newProduct = {
+  //   ID: req.body.productId,
+  //   Name: req.body.name,
+  //   Quantity: parseInt(req.body.quantity),
+  //   Price: parseFloat(req.body.price),
+  //   productNo: parseFloat(req.body.productNo),
+  //   parentNo: parseFloat(req.body.parentNo),
+  //   warranty: parseFloat(req.body.warranty),
+  //   // total : parseInt(req.body.quantity)*parseFloat(req.body.price)
+  // }
+
+
+
+  // if (!req.session.cartData0) {
+  //   req.session.cartData0 = []
+  //   var old = req.session.cartData0;
+  // } else {
+
+  //   var old = req.session.cartData0;
+  //   var productExistInCart = false;
+
+  //   old.forEach(function(product, index, array) {
+  //     if (product.ID == req.body.productId) {
+  //       array[index].Quantity += newProduct.Quantity;
+  //       productExistInCart = true;
+  //     }
+  //   });
+  // }
+
+  // if (productExistInCart) {
+  //   req.session.cartData0 = old;
+  //   req.session.save(function(err) {
+  //     // session saved
+  //     return res.redirect(`https://${hostNew}/product/${newProduct.parentNo}?ShowModal=yes&Q=${newProduct.Quantity}`);
+  //   })
+  // } else {
+  //   old.push(newProduct);
+  //   req.session.cartData0 = old;
+  //   req.session.cartData0 = old;
+  //   req.session.cartCount = req.session.cartData0.length;
+    
+  //   req.session.save(function(err) {
+  //     // session saved
+  //     return res.redirect(`https://${hostNew}/product/${newProduct.parentNo}?ShowModal=yes&Q=${newProduct.Quantity}`);
+  //   })
+  // }
 
 })
 
@@ -1135,7 +1710,7 @@ router.get('/product/:id', function(req, res, next) {
   const { id } = req.params;
   Chapter.findOne({ _id: id }).exec(function(error, productData) {
     if (error) {
-      // console.log(error.name);
+     
       if (error.name == 'CastError') {
         var err = new Error('File Not Found');
         err.status = 404;
@@ -1162,8 +1737,7 @@ router.post('/sendResetEmail', function(req, res, next) {
 
   const output = 'Email Body';
 
-  // console.log(req.body.email);
-  // res.send(req.body.email);
+ 
 
   let transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -1185,7 +1759,7 @@ router.post('/sendResetEmail', function(req, res, next) {
 
   transporter.sendMail(mailOptions, function(err, data) {
     if (err) {
-      console.log(err)
+     
       res.send('error ocurs');
     } else {
       res.send('email sent!!!');
@@ -1200,7 +1774,7 @@ router.get('/Course/:id', function(req, res, next) {
   const { id } = req.params;
   Course.findOne({ _id: id }).exec(function(error, courseData) {
     if (error) {
-      // console.log(error.name);
+    
       if (error.name == 'CastError') {
         var err = new Error('File Not Found');
         err.status = 404;
@@ -1210,18 +1784,19 @@ router.get('/Course/:id', function(req, res, next) {
     } else {
       var find = Chapter.find({ courseID: id }).sort({ order: 1 }).exec(function(error, ChaptersData) {
         try {
-          // // console.log(ChaptersData)
+         
           var ChaptersDataEdited = [];
 
           if (req.session.userId) {
-            // console.log(req.session.userId);
+            
             var subscriptions = User.findById(req.session.userId)
               .exec(function(error, user) {
+                
+          
                 if (error) {
                   return next(error);
                 } else {
-                  // // console.log( "name:"+ user.name+ " / favorite:"+ user.favoriteBook + " / subscription:" + user.subscription );
-                  // console.log('xxx---xxxx')
+                 
                   passPermitedLinks(user.subscription);
                 }
               })
@@ -1235,7 +1810,7 @@ router.get('/Course/:id', function(req, res, next) {
               for (const chapter of ChaptersData) {
 
                 if (chapter.price > 0) {
-                  // console.log(chapter._id)
+                
 
                   if (subscription != "NoUserSignedIn") {
                     function checkSubscription(sub) {
@@ -1244,7 +1819,7 @@ router.get('/Course/:id', function(req, res, next) {
 
 
                     var x = subscription.some(checkSubscription);
-                    // console.log(subscription.some(checkSubscription))
+                   
                   }
 
 
@@ -1279,10 +1854,9 @@ router.get('/Course/:id', function(req, res, next) {
 
 // GET /redirect
 router.get('/redirect', function(req, res, next) {
-  // console.log("__________Redirect has been called______");
-
+ 
   const { tap_id } = req.query;
-  console.log(tap_id);
+  
 
   var http = require("https");
 
@@ -1305,7 +1879,7 @@ router.get('/redirect', function(req, res, next) {
 
     res.on("end", function() {
       var body = Buffer.concat(chunks);
-      console.log(body.toString());
+     
     });
   });
 
@@ -1318,11 +1892,9 @@ router.get('/redirect', function(req, res, next) {
 router.get('/redirect2', function(req, res, next) {
   var request = require("request");
 
-  // console.log("__________Redirect2 has been called______");
-
+  
   const { tap_id } = req.query;
-  // console.log(tap_id);
-
+ 
   var options = {
     method: 'GET',
     url: `https://api.tap.company/v2/charges/${tap_id}`,
@@ -1334,23 +1906,16 @@ router.get('/redirect2', function(req, res, next) {
     if (error) throw new Error(error);
 
     bodyJSON = JSON.parse(body)
-    // console.log(body);
+   
 
     if (bodyJSON.response) {
       const status = bodyJSON.response.message;
-      console.log(`_Redirect2 _______________________________`)
-      console.log(`   - Charge Id=${bodyJSON.id}`)
-      console.log(`   - status = ${status}`)
-      console.log(`   - MetaData = ${JSON.stringify(bodyJSON.metadata)}`)
-
-
-      console.log(`__________________________________________`)
-
+      
 
 
       Charge.findOne({ _id: bodyJSON.metadata.ChargeID }).exec(function(error, chargeData) {
         if (error) {
-          // console.log(error.name);
+          
           return next(error);
         } else {
           if (status == "Captured") {
@@ -1402,8 +1967,7 @@ router.post('/pay', async function(req, res1, next) {
   userData.referer = req.headers.referer;
   userData.userId = "Guest";
 
-  // console.log("userData: "+ JSON.stringify(userData));
-
+ 
   var totalPrice = 0;
 
   var cartIDs = []; // to use in find
@@ -1415,7 +1979,7 @@ router.post('/pay', async function(req, res1, next) {
   // todo: use same in cart
   Chapter.find({ _id: { $in: cartIDs } }, { name: 1, price: 1 }).exec(function(error, productData) {
     if (error) {
-      // console.log(error.name);
+      
       if (error.name == 'CastError') {
         var err = new Error('File Not Found');
         err.status = 404;
@@ -1427,12 +1991,9 @@ router.post('/pay', async function(req, res1, next) {
       var Quantity = [];
       var Price = [];
       var Name = [];
-      // console.log("productData: "+productData);
-      // console.log("cartData: "+cartIDs);
+      
       for (var i = 0; i < productData.length; i++) {
-        console.log("productData(" + i + "): " + productData[i]._id);
-        console.log("cartData(" + i + ")   : " + cartData[i].ID);
-        console.log("cartIDs(" + i + ")    : " + cartIDs[i]);
+       
 
         if (productData[i]._id == cartData[i].ID) {
 
@@ -1466,17 +2027,13 @@ router.post('/pay', async function(req, res1, next) {
       }
 
 
-      console.log("chargeData: " + JSON.stringify(chargeData));
-      console.log("chargeData: " + chargeData);
-      console.log("TotalPrice: " + chargeData.TotalPrice);
-
-
+    
       // payforThis(chargeData, userData, totalPrice);
       Charge.create(chargeData, function(error, ChargeResult) {
         if (error) {
-          console.log(error.code);
+         
         } else {
-          console.log("ChargeResult: " + JSON.stringify(ChargeResult));
+         
           payforThis(ChargeResult);
         }
       });
@@ -1495,7 +2052,7 @@ router.post('/pay', async function(req, res1, next) {
       }
     };
 
-    // console.log("dataToPay"+JSON.stringify(dataToPay));
+   
 
     var req = http.request(options, function(res) {
       var chunks = [];
@@ -1506,10 +2063,10 @@ router.post('/pay', async function(req, res1, next) {
 
       res.on("end", function() {
         var body = Buffer.concat(chunks);
-        // // console.log(body.toString());
+       
         var profile = JSON.parse(body);
         if (!profile.transaction) {
-          console.log("profile.transaction)");
+         
           var err = new Error('Error E002: Payment Gateway Error');
           next(err);
         } else {
@@ -1533,7 +2090,7 @@ router.post('/pay', async function(req, res1, next) {
         InternalChgId: ChargeResult.InternalChgId
       },
 
-      reference: { transaction: 'txn_0001', order: 'ord_0001' },
+      reference: { transaction: 'txn_0001', order: 'tng' },
       receipt: { email: false, sms: true },
       customer:
       {
@@ -1553,26 +2110,9 @@ router.post('/pay', async function(req, res1, next) {
 
 });
 
-// GET /Courses Page /safe
-router.get('/', function(req, res, next) {
-  Course.find({}).exec(function(error, courseData) {
-    if (error) {
-      return next(error);
-    } else {
-      Chapter.find({}).exec(function(error, chapterData) {
-        if (error) {
-          return next(error);
-        } else {
 
 
-          return res.render('CoursesPage', { title: 'Home Page', courseData: courseData, chapterData: chapterData });
-        }
-      });
 
-      // return res.render('CoursesPage', { title: 'Home Page', courseData: courseData, length: courseData.length});
-    }
-  });
-});
 
 
 
@@ -1581,50 +2121,21 @@ router.post('/getPay', function(req, res, next) {
   // 
 
 
-  var chargeData = {
-    ChargeID: req.body.metadata.ChargeID,
-    InternalChgId: req.body.metadata.InternalChgId,
-  }
+  var OrderId = req.body.metadata.udf1;
+  
+ 
 
-  console.log("status:       " + req.body.status.toLowerCase());
-  console.log("ChargeID:     " + chargeData.ChargeID);
-  console.log("InternalChgId:" + chargeData.InternalChgId);
-
-
+  
   arr_update_dict = { "$set": {} };
-  arr_update_dict["$set"]["status"] = req.body.status.toLowerCase();
-  Charge.findOneAndUpdate({ _id: chargeData.ChargeID }, arr_update_dict).then(function() {
-    if (error) {
-      console.log(error.code);
-    } else {
-      return res.send('getPay has been called -1');
-    }
+  arr_update_dict["$set"]["KentStatusBackEnd"] = req.body.status
+  arr_update_dict["$set"]["paymentLog"] = req.body
+
+  Order.findOneAndUpdate({ _id: OrderId }, arr_update_dict).then(function() {
+    return res.send('getPay has been called -1');
+    
   })
 
-  // todo 2020 find user and update
-  // User.findOneAndUpdate({_id: chargeData.userId},
-  //   {$push:
-  //     {
-  //       subscription: chargeData.chapterId,
-  //       charge: chargeData.charge,
-  //       courseName: chargeData.courseName,
-  //       chapterName: chargeData.chapterName,
-  //     }
-  //   }).then(function(){
-
-  //     Charge.create(chargeData, function (error, user) {
-  //       if (error) {
-  //         console.log(error.code);
-  //       } else {
-  //         return res.send('getPay has been called -1');
-  //       }
-  //     });
-
-  // }).catch(function(error){
-  //   return next(error);
-  // });
-
-  // return res.send('getPay has been called -2');
+  
 });
 
 
@@ -1639,6 +2150,25 @@ router.get('/contact', function(req, res, next) {
   return res.render('contact', { title: 'Contact' });
 });
 
+// GET /contact /safe
+router.get('/tree', function(req, res, next) {
+  return res.render('tree', { title: 'Links' });
+});
+
+// GET /contact /safe
+router.get('/return-and-refund', function(req, res, next) {
+  return res.render('return-and-refund', { title: 'return-and-refund' });
+});
+
+// GET /contact /safe
+router.get('/privacy', function(req, res, next) {
+  return res.render('privacy', { title: 'privacy' });
+});
+
+router.get('/FAQ', function(req, res, next) {
+  return res.render('FAQ', { title: 'FAQ' });
+});
+
 
 
 // GET /login
@@ -1648,8 +2178,8 @@ router.get('/login', mid.loggedOut, function(req, res, next) {
 
 // POST /login
 router.post('/login', function(req, res, next) {
-  console.log(req)
-  // console.log('login from main')
+  
+ 
   if (req.body.email && req.body.password) {
     User.authenticate(req.body.email.toLowerCase(), req.body.password, function(error, user) {
       if (error || !user) {
@@ -1662,9 +2192,7 @@ router.post('/login', function(req, res, next) {
         req.session.manager = user.admin;
         req.session.theSaleseman = user.saleseman;
         req.session.userName = user.name;
-        console.log("admin: " + user.admin)
-        console.log("saleseman: " + user.saleseman)
-
+        
         // return res.redirect('/');
         req.session.save(function(err) {
           // session saved
@@ -1686,7 +2214,7 @@ router.get('/register', mid.loggedOut, function(req, res, next) {
 
 // POST /register
 router.post('/register', function(req, res, next) {
-  console.log(req)
+  
   if (req.body.email &&
     req.body.name &&
     req.body.password &&
