@@ -3,6 +3,11 @@ extends layout
 block content
   .main.container
     h1 Order Detailed Page
+    p= orderData
+    each product,index in orderData.productIDs
+      p= orderData.productNames[index]
+      p= orderData.quantity[index]
+    
 
 
     .row
@@ -31,12 +36,32 @@ block content
                           a(href=`../editAny/Order/${orderData._id}/invoice//${orderData.invoice?orderData.invoice:"NaN"}/${typeof orderData.invoice}/orderPage`)
                               span.badge.text-bg-success تعديل
                     tr
+                        th وسيلة الدفع 
+                        th :
+                        td= `${orderData.payment_method}`
+                    tr
+                        th حاله دفع اونلاين
+                        th :
+                        td= `${orderData.KentStatus}`
+                    tr
+                        th تأكيد الدفع
+                        th :
+                        td= `${orderData.KentStatusBackEnd}`
+                    tr
                         th المتجر
                         th :
                         td= `${orderData.warehouse}`
                         td
                           if (orderData.status != "completed" && orderData.status != "returned" && orderData.status != "canceled")
                             a(href=`../editAny/Order/${orderData._id}/warehouse//${orderData.warehouse?orderData.warehouse:"NaN"}/${typeof orderData.warehouse}/orderPage`)
+                              span.badge.text-bg-success تعديل
+                    tr
+                        th paymentLog
+                        th :
+                        td= `${orderData.paymentLog}`
+                        td
+                          if (orderData.status != "completed" && orderData.status != "returned" && orderData.status != "canceled")
+                            a(href=`../editAny/Order/${orderData._id}/paymentLog//${orderData.paymentLog?orderData.paymentLog:"NaN"}/${typeof orderData.paymentLog}/orderPage`)
                               span.badge.text-bg-success تعديل
                     tr
                         th الحالة
@@ -123,7 +148,7 @@ block content
                         td= `${orderData.userID}`
 
 
-        a(href=`/invoicePrint/${orderData.orderNo}`)
+        a(href=`/invoicePrint/${orderData._id}`)
           .btn.btn-success.bg-warning.mb-2 اطبع الفاتورة
 
         
@@ -136,7 +161,9 @@ block content
                   tr
                   th #
                   th اسم المنتج
+                  th اللون
                   th الكفاله
+                  
                   //- th ID
                   th الكمية
                   th السعر
@@ -148,7 +175,9 @@ block content
                       tr 
                           td= `${index+1}`
                           td= orderData.productNames[index]
+                          td= orderData.variation[index]
                           td= orderData.warranty[index]
+                          
                           //- td= orderData.productIDs[index]
                           //td= orderData.quantity[index]
                           td
