@@ -2,13 +2,15 @@ extends layout
 
 block content
   .main.container
-    h1 Brand Page
+    h1 Warehouse Page
 
 
     .row
-        h3 Create Brand
+        //- .col-md-8.col-md-offset-2
+        h1.display-4.m-b-2 ITC Store
+        h3 Create Warehouse
 
-        form(method='POST' action='/manager/AddBrand')
+        form(method='POST' action='/AddWarehouse')
           .row
             .col-sm
               label(for='name') Name :
@@ -21,18 +23,21 @@ block content
         table.table
           thead
             tr
-              th(scope='col') Brand No
+              th(scope='col') #
               th(scope='col') Name
               //- th(scope='col') ID
               th(scope='col') 
           tbody
-            each brand,index in brandData
+            each warehouse,index in warehouseData
               tr
-                th(scope='row')= brand.brandNo
-                td= `${brand.name}`
-                //- td= `${category._id}`
+                th(scope='row')
+                  a(href=`warehousePage/${warehouse._id}`)
+                    div(scope='row')= index+1
+
+                td= `${warehouse.name}`
+                //- td= `${warehouse._id}`
                 td
-                    a(href=`/manager/deletBrand/${brand._id}`)
+                    a(href=`/deletWarehouse/${warehouse._id}`)
                         .badge.text-bg-danger.ms-1
                             i.bi.bi-trash.m-2
 
