@@ -10,14 +10,42 @@ var Purchase = require('../../models/purchase');
 var TransferRequest = require('../../models/transferRequest');
 var User = require('../../models/user');
 var City = require('../../models/city');
-var mid = require('../../middleware');
+var mid = require('../../middleware'); 
+
+
 var nodemailer = require('nodemailer');
+
 
 
 
 var fs = require('fs');
 const multer = require('multer')
 var path = require('path');
+
+router.get('/brandPage/:brandId/', mid.requiresSaleseman, function(req, res, next) {
+  const { brandId } = req.params;
+
+  Brand.findOne({ _id: brandId }).exec(function(error, brandData) {
+    if (error) {
+      return next(error);
+    } else {
+      return res.render('manager/brandPage', { title: 'brandPage', brandData: brandData });
+    }
+  });
+});
+
+router.get('/categoryPage/:categoryId/', mid.requiresSaleseman, function(req, res, next) {
+  const { categoryId } = req.params;
+
+  Category.findOne({ _id: categoryId }).exec(function(error, categoryData) {
+    if (error) {
+      return next(error);
+    } else {
+      return res.render('manager/categoryPage', { title: 'categoryPage', categoryData: categoryData });
+    }
+  });
+});
+
 
 // dublicted in app an admin
 const storage = multer.diskStorage({
@@ -66,6 +94,41 @@ router.get('/', mid.requiresSaleseman, function(req, res, next) {
   return res.render('manager/index', { title: 'Home' });
 });
 
+router.get('/posts', mid.requiresSaleseman, function(req, res, next) {
+  const referer = req.headers.referer;
+  const host = req.headers.host;
+
+  console.log(referer);
+  console.log(host);
+  
+  Product.find({}).exec(function(error, productData) {
+    if (error) {
+      return next(error);
+    } else {
+      var cv = "/img/upload/myFile-1691806589904.jpg"
+      var cx = productData[0].img[0]
+      
+      console.log(productData[0].img[0])
+      
+      console.log("cv: " + cv)
+      console.log("cx: " + cx)
+
+      
+      console.log("cv.split: " + cv.split("/")[3])
+      console.log("cx.split: " + cx.split("/")[3])
+
+      
+      
+      return res.render('manager/posts', { title: 'Posts', productData: productData, host:host });
+      
+    }
+
+    
+  })
+})
+
+
+
 router.get('/products', mid.requiresSaleseman, function(req, res, next) {
   Product.find({}).exec(function(error, productData) {
     if (error) {
@@ -105,7 +168,7 @@ router.get('/products', mid.requiresSaleseman, function(req, res, next) {
 });
 
 router.get('/category', mid.requiresSaleseman, function(req, res, next) {
-  Category.find({}).exec(function(error, categoryData) {
+  Category.find({}).sort({ categoryNo: 1 }).exec(function(error, categoryData) {
     if (error) {
       return next(error);
     } else {
@@ -184,11 +247,11 @@ router.get('/warehousePage/:warehouseID', mid.requiresSaleseman, function(req, r
 });
 
 router.get('/warehouse', mid.requiresSaleseman, function(req, res, next) {
-  Warehouse.find({}).exec(function(error, warehouseData) {
+  Product.find({}).exec(function(error, productData) {
     if (error) {
       return next(error);
     } else {
-      return res.render('manager/warehouse', { title: 'Warehouse', warehouseData: warehouseData });
+      return res.render('manager/warehouse', { title: 'Warehouse', productData: productData });
     }
   });
 });
@@ -218,7 +281,7 @@ router.get('/purchase', mid.requiresSaleseman, function(req, res, next) {
 
 router.get('/order/:sortTo', mid.requiresSaleseman, function(req, res, next) {
   var { sortTo } = req.params;
-
+ 
   if (sortTo == 1) {
     sortTo = "invoice"
   } else if (sortTo == 2) {
@@ -437,6 +500,9 @@ router.get('/productPage/:productId/', mid.requiresSaleseman, function(req, res,
 });
 
 
+
+
+
 router.get('/editAny/:collection/:id/:field/:value/:type/:returnTo', mid.requiresSaleseman, function(req, res, next) {
 
   const data = {
@@ -448,10 +514,38 @@ router.get('/editAny/:collection/:id/:field/:value/:type/:returnTo', mid.require
     'returnTo': req.params.returnTo,
     'referer': req.headers.referer,
   }
+  
 
+  if ( (data.field == "category" && data.collection == "Product")  || data.field == "brand") {
+    console.log("__________")
+    if (data.collection == "Product") { var x = Product } // is there somesing more todo
+    else if (data.collection == "Category") { var x = Category }
+
+    if (data.field == "brand") { var y = Brand } // is there somesing more todo
+    else if (data.field == "category") { var y = Category }
+
+    
+    x.findOne({ _id: data.id }).exec(function(error, result) {
+      if (error) {
+        return next(error);
+      } else {
   
-  
-  return res.render('manager/formEditAny', { title: 'Edit', data: data, });
+        y.find({}).exec(function(error, subData) {
+          if (error) {
+            return next(error);
+          } else {
+
+            return res.render('manager/formEditAny', { title: 'Upload', data: data, result:result, subData:subData});
+
+            
+          }
+        })       
+      }
+    })
+  } else {
+    console.log("xxxcxxx_xxxxx")
+    return res.render('manager/formEditAny', { title: 'Edit', data: data, });
+  }
   
 });
 
@@ -464,7 +558,26 @@ router.get('/uploadImage/:collection/:id/:returnTo', mid.requiresSaleseman, func
     'returnTo': req.params.returnTo,
   }
   console.log(data);
-  return res.render('manager/formUploadImage', { title: 'Upload', data: data, });
+
+  if (data.collection == "Product") { var x = Product } // is there somesing more todo
+  else if (data.collection == "Category") { var x = Category }
+
+  
+  
+  x.findOne({ _id: data.id }).exec(function(error, result) {
+    if (error) {
+      return next(error);
+    } else {
+
+      console.log(result)
+  
+      //res.redirect(returnLink) // do to my specific product todo
+      return res.render('manager/formUploadImage', { title: 'Upload', data: data, result:result});
+    }
+  })
+
+  
+  
 });
 
 router.post('/uploadImage/:collection/:id/:returnTo', mid.requiresSaleseman, function(req, res, next) {
@@ -492,7 +605,7 @@ router.post('/uploadImage/:collection/:id/:returnTo', mid.requiresSaleseman, fun
         console.log("filename")
         console.log(filename)
         console.log(fileLInk)
-        addLinkImgLingToAny(data.collection, data.id, data.returnTo, filename, res)
+        addLinkImgLingToAny2(data.collection, data.id, data.returnTo, filename, res)
 
         // return res.render("manager", { title: '', fileLInk: fileLInk });
       } else {
@@ -502,7 +615,7 @@ router.post('/uploadImage/:collection/:id/:returnTo', mid.requiresSaleseman, fun
   })
 })
 
-function addLinkImgLingToAny(collection, id, returnTo, filename, res) {
+function addLinkImgLingToAny2(collection, id, returnTo, filename, res) {
   arr_update_dict = { "$set": {} };
   //this shoudl be dynamic us refere
   var z = 0;
@@ -529,6 +642,117 @@ function addLinkImgLingToAny(collection, id, returnTo, filename, res) {
 }
 
 
+
+router.post('/uploadImage/:collection/:id/:returnTo/:index', mid.requiresSaleseman, function(req, res, next) {
+  const data = {
+    'collection': req.params.collection,
+    'id': req.params.id,
+    'returnTo': req.params.returnTo,
+    'index': req.params.index,
+  }
+
+  const host = req.headers.host;
+  const referer = req.headers.referer;
+
+  console.log(data)
+  console.log("host: " + host );
+  console.log("referer: " + referer );
+
+  upload(req, res, (err) => {
+    if (err) {
+      res.send(err);
+    } else {
+      if (req.file) {
+
+        const filename = req.file.filename;
+        const fileLInk = `https://${host}/` + filename;
+        console.log("filename")
+        console.log(filename)
+        console.log(fileLInk)
+        addLinkImgLingToAny(data.collection, data.id, data.returnTo, filename, data.index, res)
+
+        // return res.render("manager", { title: '', fileLInk: fileLInk });
+      } else {
+        res.send(`Error: No file selected`)
+      }
+    }
+  })
+})
+function addLinkImgLingToAny(collection, id, returnTo, filename, index,res) {
+  arr_update_dict = { "$set": {} };
+  //this shoudl be dynamic us refere
+  var z = 0;
+  if (collection == "Product") { var x = Product; var returnLink = '/manager/productPage/' + id; z = 1 }
+  else if (collection == "Product" && returnTo == "productshop") { var x = Product; var returnLink = '../product/' + id; z = 1 }
+  else if (collection == "Category") { var x = Category;; var returnLink = '/manager/category/'; z = 1 }
+  else if (collection == "Order") { var x = Order;; var returnLink = '/manager/orderPage/' + id; z = 1 }
+
+  if (z == 1) {
+
+    
+    arr_update_dict["$set"][`img.${index}`] = '/img/upload/' + filename;
+    x.findOneAndUpdate({ _id: id }, arr_update_dict).then(function() {
+
+      res.redirect(returnLink) // do to my specific product todo
+
+
+    }).catch(function(error) {
+      return next(error);
+    });
+  } else {
+    res.send(`Error: No Collection provided`)
+  }
+}
+
+
+
+
+
+
+router.post('/editAny/:collection/:field/:id/:index', mid.requiresSaleseman, function(req, res, next) {
+  const { collection } = req.params;
+  const { index } = req.params;
+  const { field } = req.params;
+  const { id } = req.params;
+  const value = req.body.value;
+
+  console.log(collection)
+  console.log(index)
+  console.log(id)
+  console.log(value)
+
+  addDataToAny(collection, id, value, index,field, res)
+  
+})
+
+function addDataToAny(collection, id, value, index,dataFiled, res) {
+  arr_update_dict = { "$set": {} };
+  //this shoudl be dynamic us refere
+  var z = 0;
+  if (collection == "Product") { var x = Product; var returnLink = '/manager/productPage/' + id; z = 1 }
+  // else if (collection == "Product" && returnTo == "productshop") { var x = Product; var returnLink = '../product/' + id; z = 1 }
+  // else if (collection == "Category") { var x = Category;; var returnLink = '/manager/category/'; z = 1 }
+  // else if (collection == "Order") { var x = Order;; var returnLink = '/manager/orderPage/' + id; z = 1 }
+  
+  if (z == 1) {
+
+    
+    arr_update_dict["$set"][`${dataFiled}.${index}`] = value;
+    x.findOneAndUpdate({ _id: id }, arr_update_dict).then(function() {
+
+      res.redirect(returnLink) // do to my specific product todo
+
+
+    }).catch(function(error) {
+      return next(error);
+    });
+  } else {
+    res.send(`Error: No Collection provided`)
+  }
+}
+
+
+
 router.post('/editAny', mid.requiresSaleseman, function(req, res, next) {
 
   var data = {
@@ -550,7 +774,11 @@ router.post('/editAny', mid.requiresSaleseman, function(req, res, next) {
   else if (data.collection == "TransferRequest") { var x = TransferRequest }
   else if (data.collection == "User") { var x = User }
 
-
+  if (data.field == 'category'){var usingSplit = data.value.split(','); data.value = usingSplit}
+  
+  console.log(usingSplit)
+  console.log(data)
+  console.log(x)
 
 
   arr_update_dict = { "$set": {} };
@@ -558,13 +786,15 @@ router.post('/editAny', mid.requiresSaleseman, function(req, res, next) {
   x.findOneAndUpdate({ _id: data.id }, arr_update_dict).then(function() {
     
 
-
     if (data.returnTo == "productshop") {
       return res.redirect(data.referer);
     } else {
       return res.redirect(data.returnTo + "/" + data.id);
     }
-  })
+    
+  }).catch(function(error) {
+      return next(error);
+  });
 
 
 })
@@ -853,26 +1083,26 @@ router.post('/AddProduct', mid.requiresAdmin, function(req, res, next) {
   var productData = {
     // 'SKU':req.body.SKU,
     'name': req.body.name,
-    'variantName': req.body.variantName,
-    'price': req.body.price,
-    'cost': req.body.cost,
-    "status": req.body.status,
-    'quantity': req.body.quantity,
-    'naseem': req.body.naseem,
-    'qurain': req.body.qurain,
-    "description": req.body.description,
-    "discountPrice": req.body.discountPrice,
-    "category": req.body.category.split("#")[0],
-    "categoryName": req.body.category.split("#")[1],
-    "categoryNo": req.body.category.split("#")[2],
-    "brand": req.body.brand.slice(0, 24),
-    "brandName": req.body.brand.slice(24),
-    "vendor": req.body.vendor.slice(0, 24),
-    "vendorName": req.body.vendor.slice(24),
-    'SuperProductID': req.body.SuperProductID,
-    'variant': req.body.variant,
-    'group': req.body.group,
-    'warranty': req.body.warranty
+    // 'variantName': req.body.variantName,
+    // 'price': req.body.price,
+    // 'cost': req.body.cost,
+    // "status": req.body.status,
+    // 'quantity': req.body.quantity,
+    // 'naseem': req.body.naseem,
+    // 'qurain': req.body.qurain,
+    // "description": req.body.description,
+    // "discountPrice": req.body.discountPrice,
+    // "category": req.body.category.split("#")[0],
+    // "categoryName": req.body.category.split("#")[1],
+    // "categoryNo": req.body.category.split("#")[2],
+    // "brand": req.body.brand.slice(0, 24),
+    // "brandName": req.body.brand.slice(24),
+    // "vendor": req.body.vendor.slice(0, 24),
+    // "vendorName": req.body.vendor.slice(24),
+    // 'SuperProductID': req.body.SuperProductID,
+    // 'variant': req.body.variant,
+    // 'group': req.body.group,
+    // 'warranty': req.body.warranty
   };
 
 
@@ -909,9 +1139,11 @@ router.post('/AddProduct', mid.requiresAdmin, function(req, res, next) {
 
 // POST /AddCategory
 router.post('/AddCategory', mid.requiresAdmin, function(req, res, next) {
-
+  
+  
   var categoryData = {
-    'name': req.body.name
+    'name': req.body.name,
+   
   };
 
   Category.create(categoryData, function(error, theCategory) {
@@ -1185,6 +1417,8 @@ router.get('/send', function(req, res) {
   const { mobile } = req.query;
   const { massege } = req.query;
   const { color } = req.query;
+  const { KentStatus } = req.query;
+  const { orderData } = req.query;
 
   console.log("orderID:" + orderID)
 
@@ -1203,12 +1437,13 @@ router.get('/send', function(req, res) {
 
 var mailOptions = {
   from: 'eng.dugaim@gmail.com',
-  to: 'eng.dugaim@gmail.com, ITC-Amjad@outlook.com',
+  to: 'eng.dugaim@gmail.com, ting.storee@gmail.com',
   subject: `${massege} رقم الطلب: ${orderID}`,
   text: `mobile: ${mobile},
   orderID: ${orderID}. 
-  https://itcstore.net/manager/orderPage/${orderID}, 
+  https://www.tingstorekw.com/manager/orderPage/${orderID}, 
   color: ${color},
+  KentStatus: ${KentStatus},
   source: ${req.session.source}`
 };
 
@@ -1217,7 +1452,17 @@ transporter.sendMail(mailOptions, function(error, info){
     console.log(error);
   } else {
     console.log('Email sent: ' + info.response);
-    res.redirect('/emptyCart')
+
+    if (KentStatus == "CAPTURED") {
+      return res.render('/redirectAfterPaymentSucsses', { title: 'Order' , KentStatus:KentStatus, orderData:orderData});
+    } else if (KentStatus == "CANCELLED") {
+      return res.render('/redirectAfterPayment', { title: 'Order' , KentStatus:KentStatus, orderData:orderData});
+    } else if (KentStatus == "FAILED") {
+      return res.render('/redirectAfterPayment', { title: 'Order' , KentStatus:KentStatus, orderData:orderData});
+    }else {
+      res.redirect('/emptyCart')
+    }
+    
   }
 }); 
   
