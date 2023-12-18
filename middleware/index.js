@@ -129,4 +129,3 @@ module.exports.requiresAdmin = requiresAdmin;
 module.exports.requiresSaleseman = requiresSaleseman;
 module.exports.requiresSubscription = requiresSubscription;
 
-
