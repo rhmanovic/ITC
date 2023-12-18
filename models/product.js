@@ -1,11 +1,51 @@
 var mongoose = require('mongoose');
 var bcrypt = require('bcryptjs');
 var ProductSchema = new mongoose.Schema({
-    productNo: Number,
-    img: String,
+   
+    productNo: {
+      type: String,
+      default: "",
+      text: true 
+      // unique: true,
+    },
+    warehouseNo: {
+      type: String,
+      default: "",
+      text: true 
+      // unique: true,
+    },
+    
     group: {
       type: Boolean,
+      default: false,      
+    },
+    discounted: {
+      type: Boolean,
+      default: false,      
+    },
+    name: {
+      type: String,
+      efault: ""
+    },
+    url: {
+      type: String,
+      unique: true
+    },
+    googleSheet: {
+      type: Boolean,
       default: false
+    },
+    warehouseAvialable: {
+      type: Boolean,
+      default: false
+    },
+    showInWebsite: {
+      type: Boolean,
+      default: true
+    },
+    canBeOrdered: {
+      type: Boolean,
+      default: true
     },
     variant: {
       type: Boolean,
@@ -13,20 +53,26 @@ var ProductSchema = new mongoose.Schema({
     },
     name: {
         type: String,
-        default: ""
+        default: "",
+      text: false 
+        
     },
     variantName: {
         type: String,
+        default: "",
+    },
+    nameE: {
+        type: String,
         default: ""
     },
-    arabicName: {
+    googleCategory: {
         type: String,
         default: ""
     },
     SKU: String,
-    colortype: {
-        type: Number,
-        default: 0
+    color: {
+        type: String,
+        default: ""
     } ,
     cost: {
         type: Number,
@@ -72,10 +118,19 @@ var ProductSchema = new mongoose.Schema({
         type: Number,
         default: 0
     } ,
+    img: {
+        type: Array,
+        default: []
+    },
     category: {
+        type: Array,
+        default: []
+    },
+    variation: {
         type: String,
         default: ""
     },
+    
     categoryName: {
         type: String,
         default: ""
