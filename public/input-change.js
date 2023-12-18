@@ -1,4 +1,60 @@
+$('#whatsappLink').click(function() {
+  console.log("whatsappLink");
+  fbq('track', 'Contact');
+})
+$('#whatsappLink2').click(function() {
+  console.log("whatsappLink");
+  fbq('track', 'Contact');
+})
 
+$('#WFF').click(function() {
+  console.log("Search");
+  fbq('track', 'Search');
+})
+
+
+
+$('#purchaseB').click(function() {
+  var finalPrice = document.getElementById(`finalPrice`).innerHTML * 3.25;
+  console.log("Purchase Value: " + finalPrice);
+  fbq('track', 'Purchase',
+    {
+      value: finalPrice,
+      currency: 'USD',
+    }
+  );
+})
+
+
+
+
+
+$('#addToCartButton').click(function() {
+  var pid = document.getElementById(`pid`).value;
+  var product_name = document.getElementById(`product_name`).innerHTML;
+  var Quantity = document.getElementById(`intTextBox`).value;
+  var Price = document.getElementById(`pprice`).value;
+  var Total = (Quantity * Price * 3.25 ).toFixed(3);
+  console.log("Cart Value: " + Total +" "+ product_name);
+  
+  fbq('track', 'AddToCart',
+    {
+      value: Total,
+      currency: 'USD',
+      contents: [
+        {
+          id: pid,
+          quantity: Quantity
+        }],
+      content_type: 'product',
+      content_name: product_name, 
+    }
+  );
+  
+});
+
+
+  
 function Pricechange(productID, index) {
 
     console.log("index:  " + index)
@@ -241,3 +297,10 @@ function UpdateFinalPrice() {
   }
 
 }
+
+
+
+
+
+
+
